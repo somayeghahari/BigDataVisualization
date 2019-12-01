@@ -1,0 +1,70 @@
+#target_locations.py
+import pandas as pd
+from bokeh.plotting import figure, output_file, show, output_notebook
+from bokeh.models import ColumnDataSource, Range1d
+from bokeh.layouts import layout
+from bokeh.palettes import Spectral6
+Spectral6
+['#3288bd', '#99d594', '#e6f598', '#fee08b', '#fc8d59', '#d53e4f']
+from bokeh.tile_providers import CARTODBPOSITRON
+from pyproj import Proj, transform
+from bokeh.transform import linear_cmap
+from bokeh.models.tools import HoverTool
+from datetime import datetime
+
+tstart = datetime.now()
+
+output_file('mapping_targets.html')
+
+#helper function to convert lat/long to easting/northing for mapping
+#this relies on functions from the pyproj library
+def LongLat_to_EN(long, lat):
+    try:
+      easting, northing = transform(
+        Proj(init='epsg:4326'), Proj(init='epsg:3857'), long, lat)
+      return easting, northing
+    except:
+      return None, None
+
+df = pd.read_csv('thor_wwii.csv')
+
+#helper to convert all lat/long to webmercator and stores in new column
+df['E'], df['N'] = LongLat_to_EN(df['TGT_LONGITUDE'].values, df['TGT_LATITUDE'].values)
+
+#grouped = df.groupby(['E', 'N'])['TONS_IC','TONS_FRAG'].sum().reset_index()
+
+filter = grouped['TONS_FRAG']!=0
+grouped = grouped[filter]
+
+#source = ColumnDataSource(grouped)
+source = ColumnDataSource(df)
+
+left = -2150000
+right = 18000000
+bottom = -5300000
+top = 11000000
+
+p = figure(x_range=Range1d(left, right), y_range=Range1d(bottom, top))
+#p = figure(x_axis_type="mercator", y_axis_type="mercator")
+
+p.add_tile(CARTODBPOSITRON)
+p.circle(x='E', y='N', source=source2, line_color='purple', fill_color='purple')
+
+p.axis.visible = False
+
+hover = HoverTool()
+
+TOOLTIPS = [    
+    ('Attack Date', '@MSNDATE'),
+    ('Attacking Aircraft', '@AC_ATTACKING'),
+    ('Tons of Munitions', '@TOTAL_TONS'),
+    ('Type of Aircraft', '@AIRCRAFT_NAME')]
+
+p.add_tools(HoverTool(tooltips=TOOLTIPS))
+output_notebook()
+show(p)
+
+# code to speed test
+
+tend = datetime.now()
+print (tend - tstart)
